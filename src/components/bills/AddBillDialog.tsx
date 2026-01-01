@@ -24,6 +24,8 @@ export function AddBillDialog({ isOpen, setIsOpen, onAddBill }: AddBillDialogPro
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [category, setCategory] = useState("");
+  const [recurrenceModifier, setRecurrenceModifier] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
 
   const handleSubmit = () => {
     if (name && amount && dueDate && category) {
@@ -32,6 +34,8 @@ export function AddBillDialog({ isOpen, setIsOpen, onAddBill }: AddBillDialogPro
         amount: parseFloat(amount),
         dueDate,
         category,
+        recurrenceModifier: recurrenceModifier || undefined,
+        paymentMethod: paymentMethod || undefined,
       });
       setIsOpen(false);
       // Reset form
@@ -39,6 +43,8 @@ export function AddBillDialog({ isOpen, setIsOpen, onAddBill }: AddBillDialogPro
       setAmount("");
       setDueDate("");
       setCategory("");
+      setRecurrenceModifier("");
+      setPaymentMethod("");
     }
   };
 
@@ -78,6 +84,36 @@ export function AddBillDialog({ isOpen, setIsOpen, onAddBill }: AddBillDialogPro
                     <SelectItem value="Entertainment">Entertainment</SelectItem>
                     <SelectItem value="Finance">Finance</SelectItem>
                     <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="recurrence" className="text-right">Recurrence</Label>
+             <Select onValueChange={setRecurrenceModifier} value={recurrenceModifier}>
+                <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select recurrence (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="biweekly">Bi-weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="quarterly">Quarterly</SelectItem>
+                    <SelectItem value="yearly">Yearly</SelectItem>
+                </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="paymentMethod" className="text-right">Payment Method</Label>
+             <Select onValueChange={setPaymentMethod} value={paymentMethod}>
+                <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select payment method (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="autopay">Autopay</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
                 </SelectContent>
             </Select>
           </div>

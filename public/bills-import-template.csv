@@ -1,0 +1,8 @@
+Payee,Due Date,Recurrence Modifier,Amount due each month,Current balance,Interest rate,Notes,Category,Payment Method
+Mortgage/Rent,2026-01-05,Monthly,1800,,,Monthly mortgage payment,Housing,autopay
+Electricity Bill,2026-01-10,Monthly,120,,,Electric utility bill,Utilities,autopay
+Netflix Subscription,2026-01-12,Monthly,15.49,,,Streaming service,Entertainment,autopay
+Car Payment,2026-01-15,Monthly,450,12000,4.5,Car loan payment,Transport,autopay
+Internet Bill,2026-01-20,Monthly,80,,,Internet service provider,Utilities,autopay
+Credit Card,2026-01-28,Monthly,250,5000,18.99,Minimum payment,Finance,manual
+

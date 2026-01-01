@@ -52,7 +52,26 @@ export function BillTable({ bills, currentPaycheckPeriod, toggleBillStatus }: Bi
               </TableCell>
               <TableCell className={cn("font-medium", bill.status === 'Paid' && 'line-through')}>
                 <div className="font-medium">{bill.name}</div>
-                <div className="text-sm text-muted-foreground">{bill.category}</div>
+                <div className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+                  <span>{bill.category}</span>
+                  {bill.recurrenceModifier && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                      {bill.recurrenceModifier}
+                    </Badge>
+                  )}
+                  {bill.paymentMethod && (
+                    <Badge 
+                      variant="outline" 
+                      className={cn(
+                        "text-[10px] px-1.5 py-0",
+                        bill.paymentMethod === "autopay" && "bg-green-50 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-300",
+                        bill.paymentMethod === "manual" && "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900 dark:text-orange-300"
+                      )}
+                    >
+                      {bill.paymentMethod}
+                    </Badge>
+                  )}
+                </div>
               </TableCell>
               <TableCell className={cn(bill.status === 'Paid' && 'line-through')}>
                 {new Date(bill.dueDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
