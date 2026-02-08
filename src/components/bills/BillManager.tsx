@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useHouseholds } from "@/components/households/HouseholdsProvider";
 
 export function BillManager({ showTitle = false, isDashboard = false }) {
-  const { bills, addBill, importBills, toggleBillStatus } = useBills();
+  const { bills, addBill, importBills, updateBillStatus } = useBills();
   const { households, activeHouseholdId, setActiveHousehold } = useHouseholds();
   const [isAddBillOpen, setIsAddBillOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -35,7 +35,7 @@ export function BillManager({ showTitle = false, isDashboard = false }) {
 
   return (
     <Card className="h-full">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <CardTitle className="font-headline">{isDashboard ? "Upcoming Bills" : "All Bills"}</CardTitle>
           <CardDescription>
@@ -72,7 +72,7 @@ export function BillManager({ showTitle = false, isDashboard = false }) {
         <BillTable 
           bills={billsToShow}
           currentPaycheckPeriod={currentPaycheckPeriod}
-          toggleBillStatus={toggleBillStatus}
+          updateBillStatus={updateBillStatus}
         />
         {!isDashboard && (
           <>

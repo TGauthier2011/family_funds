@@ -17,6 +17,7 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import type { Bill } from "@/lib/types";
 import { normalizeRecurrence } from "@/lib/recurrence";
+import { useHouseholds } from "@/components/households/HouseholdsProvider";
 
 interface ImportBillsDialogProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ interface ImportedRow {
   "Interest rate"?: string | number;
   Notes?: string;
   "Payment Method"?: string;
+  Scope?: string;
   // Also handle lowercase/snake_case variations
   payee?: string;
   dueDate?: string;
@@ -50,6 +52,8 @@ interface ImportedRow {
   Category?: string;
   paymentMethod?: string;
   "payment method"?: string;
+  scope?: string;
+  "bill scope"?: string;
 }
 
 export function ImportBillsDialog({
@@ -62,6 +66,7 @@ export function ImportBillsDialog({
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<Omit<Bill, "id" | "status">[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { activeHouseholdId } = useHouseholds();
 
   const normalizeColumnName = (name: string): string => {
     return name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -124,6 +129,14 @@ export function ImportBillsDialog({
     return isNaN(parsed) ? undefined : parsed;
   };
 
+  const normalizeScope = (value: string | undefined): "personal" | "household" | undefined => {
+    if (!value) return undefined;
+    const normalized = value.trim().toLowerCase();
+    if (normalized.includes("house")) return "household";
+    if (normalized.includes("personal")) return "personal";
+    return undefined;
+  };
+
   const mapRowToBill = (row: ImportedRow, index: number): Omit<Bill, "id" | "status"> | null => {
     // Normalize column names (handle various formats)
     const payee = row.Payee || row.payee || "";
@@ -135,6 +148,7 @@ export function ImportBillsDialog({
     const interest = row["Interest rate"] || row["interest rate"] || row.interestRate;
     const notes = row.Notes || row.notes || "";
     const paymentMethodRaw = row["Payment Method"] || row["payment method"] || row.paymentMethod || "";
+    const scopeRaw = row.Scope || row.scope || row["bill scope"] || "";
 
     // Validate required fields
     if (!payee || !dueDateStr || !amountStr) {
@@ -163,6 +177,7 @@ export function ImportBillsDialog({
       amount,
       dueDate,
       category: category.trim() || "Other",
+      scope: normalizeScope(scopeRaw),
       recurrenceModifier,
       currentBalance: parseNumber(balance),
       interestRate: parseNumber(interest),
@@ -229,6 +244,15 @@ export function ImportBillsDialog({
       }
     });
 
+    const hasHouseholdScope = bills.some((bill) => bill.scope === "household");
+
+    if (hasHouseholdScope && !activeHouseholdId) {
+      setError("Some rows are marked as household scope, but no household is active. Select a household and retry.");
+      setPreview(null);
+      setIsProcessing(false);
+      return;
+    }
+
     if (bills.length === 0) {
       setError("No valid bills found in the file. Please check that your file has the required columns: Payee, Due Date, and Amount due each month.");
     } else if (errors.length > 0) {
@@ -269,7 +293,7 @@ export function ImportBillsDialog({
           <DialogTitle className="font-headline">Import Bills from Spreadsheet</DialogTitle>
           <DialogDescription>
             Upload a CSV or Excel file with your bills. Required columns: Payee, Due Date, Amount due each month.
-            Optional columns: Recurrence Modifier (daily, weekly, biweekly, monthly, quarterly, yearly), Current balance, Interest rate, Notes, Category, Payment Method (autopay, manual).
+            Optional columns: Recurrence Modifier (daily, weekly, biweekly, monthly, quarterly, yearly), Current balance, Interest rate, Notes, Category, Payment Method (autopay, manual), Scope (personal, household).
             <a
               href="/bills-import-template.csv"
               download
@@ -378,6 +402,7 @@ export function ImportBillsDialog({
               <li><strong>Notes</strong> (optional) - Any additional notes</li>
               <li><strong>Category</strong> (optional) - Bill category</li>
               <li><strong>Payment Method</strong> (optional) - autopay or manual</li>
+              <li><strong>Scope</strong> (optional) - personal or household</li>
             </ul>
           </div>
         </div>

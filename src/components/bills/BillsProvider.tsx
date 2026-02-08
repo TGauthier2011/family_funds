@@ -16,9 +16,11 @@ import { useHouseholds } from "@/components/households/HouseholdsProvider";
 
 type BillsContextValue = {
   bills: Bill[];
+  personalBills: Bill[];
+  householdBills: Bill[];
   addBill: (bill: Omit<Bill, "id" | "status">) => Promise<void>;
   importBills: (bills: Omit<Bill, "id" | "status">[]) => Promise<void>;
-  toggleBillStatus: (billId: string) => Promise<void>;
+  updateBillStatus: (billId: string, status: BillStatus) => Promise<void>;
 };
 
 const BillsContext = createContext<BillsContextValue | undefined>(undefined);
@@ -43,7 +45,8 @@ const createBillId = () => {
 };
 
 export function BillsProvider({ children }: { children: React.ReactNode }) {
-  const [bills, setBills] = useState<Bill[]>(mockBills);
+  const [personalBills, setPersonalBills] = useState<Bill[]>(mockBills);
+  const [householdBills, setHouseholdBills] = useState<Bill[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const { activeHouseholdId } = useHouseholds();
 
@@ -62,30 +65,55 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
         if (stored) {
           const parsed = JSON.parse(stored) as Bill[];
           if (Array.isArray(parsed)) {
-            setBills(parsed);
+            setPersonalBills(parsed.map((bill) => ({ ...bill, scope: "personal" })));
           }
         }
       } catch (error) {
         console.warn("Failed to load bills from storage.", error);
       }
+      setHouseholdBills([]);
       return;
     }
 
-    const billsCollection = activeHouseholdId
-      ? collection(db, "households", activeHouseholdId, "bills")
-      : collection(db, "users", userId, "bills");
-    const unsubscribe = onSnapshot(
-      billsCollection,
+    const personalCollection = collection(db, "users", userId, "bills");
+    const unsubscribePersonal = onSnapshot(
+      personalCollection,
       (snapshot) => {
-        const nextBills = snapshot.docs.map((docSnap) => docSnap.data() as Bill);
-        setBills(nextBills);
+        const nextBills = snapshot.docs.map((docSnap) => ({
+          ...(docSnap.data() as Bill),
+          scope: "personal" as const,
+        }));
+        setPersonalBills(nextBills);
       },
       (error) => {
-        console.warn("Failed to load bills from Firestore.", error);
+        console.warn("Failed to load personal bills from Firestore.", error);
       }
     );
 
-    return () => unsubscribe();
+    let unsubscribeHousehold = () => {};
+    if (activeHouseholdId) {
+      const householdCollection = collection(db, "households", activeHouseholdId, "bills");
+      unsubscribeHousehold = onSnapshot(
+        householdCollection,
+        (snapshot) => {
+          const nextBills = snapshot.docs.map((docSnap) => ({
+            ...(docSnap.data() as Bill),
+            scope: "household" as const,
+          }));
+          setHouseholdBills(nextBills);
+        },
+        (error) => {
+          console.warn("Failed to load household bills from Firestore.", error);
+        }
+      );
+    } else {
+      setHouseholdBills([]);
+    }
+
+    return () => {
+      unsubscribePersonal();
+      unsubscribeHousehold();
+    };
   }, [userId, activeHouseholdId]);
 
   useEffect(() => {
@@ -94,11 +122,11 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(bills));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(personalBills));
     } catch (error) {
       console.warn("Failed to save bills to storage.", error);
     }
-  }, [bills, userId]);
+  }, [personalBills, userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -127,6 +155,7 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
             ...bill,
             id: bill.id || createBillId(),
             status: bill.status || "Upcoming",
+            scope: "personal" as const,
           };
           return sanitizeBill(nextBill);
         });
@@ -149,16 +178,18 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
 
   const addBill = useCallback(
     async (bill: Omit<Bill, "id" | "status">) => {
-      const newBill: Bill = { ...bill, id: createBillId(), status: "Upcoming" };
+      const targetScope = bill.scope ?? (activeHouseholdId ? "household" : "personal");
+      const resolvedScope = targetScope === "household" && !activeHouseholdId ? "personal" : targetScope;
+      const newBill: Bill = { ...bill, id: createBillId(), status: "Upcoming", scope: resolvedScope };
       const sanitized = sanitizeBill(newBill);
 
       if (!userId) {
-        setBills((prev) => [sanitized, ...prev]);
+        setPersonalBills((prev) => [sanitized, ...prev]);
         return;
       }
 
       try {
-        const docRef = activeHouseholdId
+        const docRef = resolvedScope === "household" && activeHouseholdId
           ? doc(db, "households", activeHouseholdId, "bills", newBill.id)
           : doc(db, "users", userId, "bills", newBill.id);
         await setDoc(docRef, sanitized);
@@ -172,23 +203,26 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
   const importBills = useCallback(
     async (importedBills: Omit<Bill, "id" | "status">[]) => {
       const newBills: Bill[] = importedBills.map((bill) => {
+        const targetScope = bill.scope ?? (activeHouseholdId ? "household" : "personal");
+        const resolvedScope = targetScope === "household" && !activeHouseholdId ? "personal" : targetScope;
         const nextBill = {
           ...bill,
           id: createBillId(),
           status: "Upcoming" as BillStatus,
+          scope: resolvedScope,
         };
         return sanitizeBill(nextBill);
       });
 
       if (!userId) {
-        setBills((prev) => [...prev, ...newBills]);
+        setPersonalBills((prev) => [...prev, ...newBills]);
         return;
       }
 
       try {
         const batch = writeBatch(db);
         newBills.forEach((bill) => {
-          const docRef = activeHouseholdId
+          const docRef = bill.scope === "household" && activeHouseholdId
             ? doc(db, "households", activeHouseholdId, "bills", bill.id)
             : doc(db, "users", userId, "bills", bill.id);
           batch.set(docRef, bill);
@@ -201,22 +235,22 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
     [userId, activeHouseholdId]
   );
 
-  const toggleBillStatus = useCallback(
-    async (billId: string) => {
-      const target = bills.find((bill) => bill.id === billId);
+  const updateBillStatus = useCallback(
+    async (billId: string, status: BillStatus) => {
+      const allBills = [...personalBills, ...householdBills];
+      const target = allBills.find((bill) => bill.id === billId);
       if (!target) return;
-      const nextStatus: BillStatus = target.status === "Paid" ? "Unpaid" : "Paid";
-      const updatedBill = sanitizeBill({ ...target, status: nextStatus });
+      const updatedBill = sanitizeBill({ ...target, status });
 
       if (!userId) {
-        setBills((prev) =>
+        setPersonalBills((prev) =>
           prev.map((bill) => (bill.id === billId ? updatedBill : bill))
         );
         return;
       }
 
       try {
-        const docRef = activeHouseholdId
+        const docRef = updatedBill.scope === "household" && activeHouseholdId
           ? doc(db, "households", activeHouseholdId, "bills", billId)
           : doc(db, "users", userId, "bills", billId);
         await setDoc(docRef, updatedBill);
@@ -224,17 +258,19 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
         console.warn("Failed to update bill status in Firestore.", error);
       }
     },
-    [bills, userId, activeHouseholdId]
+    [personalBills, householdBills, userId, activeHouseholdId]
   );
 
   const value = useMemo(
     () => ({
-      bills,
+      bills: [...personalBills, ...householdBills],
+      personalBills,
+      householdBills,
       addBill,
       importBills,
-      toggleBillStatus,
+      updateBillStatus,
     }),
-    [bills, addBill, importBills, toggleBillStatus]
+    [personalBills, householdBills, addBill, importBills, updateBillStatus]
   );
 
   return <BillsContext.Provider value={value}>{children}</BillsContext.Provider>;

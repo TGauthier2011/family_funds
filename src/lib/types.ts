@@ -1,4 +1,4 @@
-export type BillStatus = "Paid" | "Unpaid" | "Upcoming";
+export type BillStatus = "Paid" | "Unpaid" | "Upcoming" | "Late" | "Collections";
 
 export interface Bill {
   id: string;
@@ -7,6 +7,7 @@ export interface Bill {
   dueDate: string; // ISO string e.g., "2026-01-15"
   status: BillStatus;
   category: string;
+  scope?: "personal" | "household";
   recurrenceModifier?: string; // e.g., "Monthly", "Bi-weekly", "Weekly"
   currentBalance?: number;
   interestRate?: number;
@@ -36,4 +37,5 @@ export type CalendarEvent = {
   date: string;
   category: string;
   status?: BillStatus;
+  scope?: "personal" | "household";
 };

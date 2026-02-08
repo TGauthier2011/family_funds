@@ -13,7 +13,7 @@ export interface CustomCalendarProps {
   onMonthChange?: (date: Date) => void
   events?: Array<{
     date: string
-    status?: "Paid" | "Unpaid" | "Upcoming"
+    status?: "Paid" | "Unpaid" | "Upcoming" | "Late" | "Collections"
   }>
   className?: string
 }
@@ -68,6 +68,10 @@ export function CustomCalendar({
         return "bg-green-500"
       case "Unpaid":
         return "bg-red-500"
+      case "Late":
+        return "bg-orange-500"
+      case "Collections":
+        return "bg-purple-500"
       case "Upcoming":
         return "bg-yellow-500"
       default:

@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Bill } from "@/lib/types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useHouseholds } from "@/components/households/HouseholdsProvider";
 
 interface AddBillDialogProps {
   isOpen: boolean;
@@ -26,6 +27,16 @@ export function AddBillDialog({ isOpen, setIsOpen, onAddBill }: AddBillDialogPro
   const [category, setCategory] = useState("");
   const [recurrenceModifier, setRecurrenceModifier] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
+  const { activeHouseholdId } = useHouseholds();
+  const [scope, setScope] = useState<"personal" | "household">(
+    activeHouseholdId ? "household" : "personal"
+  );
+
+  useEffect(() => {
+    if (!activeHouseholdId && scope === "household") {
+      setScope("personal");
+    }
+  }, [activeHouseholdId, scope]);
 
   const handleSubmit = () => {
     if (name && amount && dueDate && category) {
@@ -34,6 +45,7 @@ export function AddBillDialog({ isOpen, setIsOpen, onAddBill }: AddBillDialogPro
         amount: parseFloat(amount),
         dueDate,
         category,
+        scope,
         recurrenceModifier: recurrenceModifier || undefined,
         paymentMethod: paymentMethod || undefined,
       });
@@ -45,6 +57,7 @@ export function AddBillDialog({ isOpen, setIsOpen, onAddBill }: AddBillDialogPro
       setCategory("");
       setRecurrenceModifier("");
       setPaymentMethod("");
+      setScope(activeHouseholdId ? "household" : "personal");
     }
   };
 
@@ -86,6 +99,20 @@ export function AddBillDialog({ isOpen, setIsOpen, onAddBill }: AddBillDialogPro
                     <SelectItem value="Medical">Medical</SelectItem>
                     <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="scope" className="text-right">Scope</Label>
+            <Select onValueChange={(value) => setScope(value as "personal" | "household")} value={scope}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select scope" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="personal">Personal</SelectItem>
+                <SelectItem value="household" disabled={!activeHouseholdId}>
+                  Household
+                </SelectItem>
+              </SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">

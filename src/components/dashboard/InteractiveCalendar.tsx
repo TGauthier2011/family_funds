@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { CustomCalendar } from "@/components/ui/custom-calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,20 @@ export function InteractiveCalendar() {
   const { bills } = useBills();
   const { households, activeHouseholdId, setActiveHousehold } = useHouseholds();
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
+  const [calendarScope, setCalendarScope] = useState<"all" | "personal" | "household">(
+    activeHouseholdId ? "all" : "personal"
+  );
+
+  useEffect(() => {
+    if (!activeHouseholdId && calendarScope !== "personal") {
+      setCalendarScope("personal");
+    }
+  }, [activeHouseholdId, calendarScope]);
+
+  const filteredBills = useMemo(() => {
+    if (calendarScope === "all") return bills;
+    return bills.filter((bill) => bill.scope === calendarScope);
+  }, [bills, calendarScope]);
 
   // Convert bills to calendar events, including recurring occurrences
   const calendarEvents = useMemo<CalendarEvent[]>(() => {
@@ -34,7 +48,7 @@ export function InteractiveCalendar() {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
 
-    bills.forEach(bill => {
+    filteredBills.forEach(bill => {
       const baseDate = parseISO(bill.dueDate);
       const recurrence = normalizeRecurrence(bill.recurrenceModifier);
       
@@ -50,12 +64,13 @@ export function InteractiveCalendar() {
           date: format(occurrenceDate, "yyyy-MM-dd"),
           category: bill.category,
           status: bill.status,
+          scope: bill.scope,
         });
       });
     });
 
     return events;
-  }, [bills, currentMonth]);
+  }, [filteredBills, currentMonth]);
 
   // Get events for a specific date - memoized to prevent recreation
   const getEventsForDate = useCallback((date: Date): CalendarEvent[] => {
@@ -90,7 +105,7 @@ export function InteractiveCalendar() {
       .reduce((sum, e) => sum + e.amount, 0);
 
     const upcomingBills = monthEvents
-      .filter(e => e.type === "bill" && e.status === "Upcoming")
+      .filter(e => e.type === "bill" && e.status !== "Paid")
       .reduce((sum, e) => sum + e.amount, 0);
 
     return { totalBills, paidBills, upcomingBills, eventCount: monthEvents.length };
@@ -115,6 +130,10 @@ export function InteractiveCalendar() {
         return "bg-green-500";
       case "Unpaid":
         return "bg-red-500";
+      case "Late":
+        return "bg-orange-500";
+      case "Collections":
+        return "bg-purple-500";
       case "Upcoming":
         return "bg-yellow-500";
       default:
@@ -125,7 +144,7 @@ export function InteractiveCalendar() {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Month Total</CardTitle>
@@ -177,8 +196,8 @@ export function InteractiveCalendar() {
       </div>
 
       {/* Calendar */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+      <div className="grid gap-6 xl:grid-cols-3">
+        <Card className="xl:col-span-2">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -202,6 +221,19 @@ export function InteractiveCalendar() {
                         {household.name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={calendarScope}
+                  onValueChange={(value) => setCalendarScope(value as "all" | "personal" | "household")}
+                >
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="personal">Personal</SelectItem>
+                    {activeHouseholdId && <SelectItem value="household">Household</SelectItem>}
+                    {activeHouseholdId && <SelectItem value="all">All</SelectItem>}
                   </SelectContent>
                 </Select>
                 <Button
@@ -256,6 +288,14 @@ export function InteractiveCalendar() {
                 <div className="h-2 w-2 rounded-full bg-red-500" />
                 <span>Unpaid</span>
               </div>
+              <div className="flex items-center gap-1">
+                <div className="h-2 w-2 rounded-full bg-orange-500" />
+                <span>Late</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="h-2 w-2 rounded-full bg-purple-500" />
+                <span>Collections</span>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -292,7 +332,9 @@ export function InteractiveCalendar() {
                             "text-xs",
                             event.status === "Paid" && "bg-green-50 text-green-700",
                             event.status === "Unpaid" && "bg-red-50 text-red-700",
-                            event.status === "Upcoming" && "bg-yellow-50 text-yellow-700"
+                            event.status === "Upcoming" && "bg-yellow-50 text-yellow-700",
+                            event.status === "Late" && "bg-orange-50 text-orange-700",
+                            event.status === "Collections" && "bg-purple-50 text-purple-700"
                           )}
                         >
                           {event.status}
@@ -351,7 +393,9 @@ export function InteractiveCalendar() {
                           className={cn(
                             event.status === "Paid" && "bg-green-50 text-green-700",
                             event.status === "Unpaid" && "bg-red-50 text-red-700",
-                            event.status === "Upcoming" && "bg-yellow-50 text-yellow-700"
+                            event.status === "Upcoming" && "bg-yellow-50 text-yellow-700",
+                            event.status === "Late" && "bg-orange-50 text-orange-700",
+                            event.status === "Collections" && "bg-purple-50 text-purple-700"
                           )}
                         >
                           {event.status}

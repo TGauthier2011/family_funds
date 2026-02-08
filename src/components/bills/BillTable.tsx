@@ -18,10 +18,27 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 interface BillTableProps {
   bills: Bill[];
   currentPaycheckPeriod: PaycheckPeriod;
-  toggleBillStatus: (billId: string) => void;
+  updateBillStatus: (billId: string, status: Bill["status"]) => void;
 }
 
-export function BillTable({ bills, currentPaycheckPeriod, toggleBillStatus }: BillTableProps) {
+const statusOptions: Bill["status"][] = ["Upcoming", "Unpaid", "Paid", "Late", "Collections"];
+
+const statusBadgeClass = (status: Bill["status"]) => {
+  switch (status) {
+    case "Paid":
+      return "bg-green-50 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-300";
+    case "Unpaid":
+      return "bg-red-50 text-red-700 border-red-200 dark:bg-red-900 dark:text-red-300";
+    case "Late":
+      return "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900 dark:text-orange-300";
+    case "Collections":
+      return "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900 dark:text-purple-300";
+    default:
+      return "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900 dark:text-yellow-300";
+  }
+};
+
+export function BillTable({ bills, currentPaycheckPeriod, updateBillStatus }: BillTableProps) {
   if (bills.length === 0) {
     return <p className="text-center text-muted-foreground p-4">No upcoming bills. Good job!</p>
   }
@@ -44,16 +61,29 @@ export function BillTable({ bills, currentPaycheckPeriod, toggleBillStatus }: Bi
             <TableRow key={bill.id} className={cn(inCurrentPaycheck && "bg-accent/40", bill.status === 'Paid' && 'text-muted-foreground')}>
               <TableCell className="p-2">
                 <Checkbox
-                  checked={bill.status === 'Paid'}
-                  onCheckedChange={() => toggleBillStatus(bill.id)}
+                  checked={bill.status === "Paid"}
+                  onCheckedChange={(checked) =>
+                    updateBillStatus(bill.id, checked ? "Paid" : "Unpaid")
+                  }
                   aria-label={`Mark ${bill.name} as paid`}
-                  className={cn(bill.status === 'Paid' && "border-muted-foreground data-[state=checked]:bg-muted-foreground data-[state=checked]:text-primary-foreground")}
+                  className={cn(bill.status === "Paid" && "border-muted-foreground data-[state=checked]:bg-muted-foreground data-[state=checked]:text-primary-foreground")}
                 />
               </TableCell>
               <TableCell className={cn("font-medium", bill.status === 'Paid' && 'line-through')}>
                 <div className="font-medium">{bill.name}</div>
                 <div className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
                   <span>{bill.category}</span>
+                  {bill.scope && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                      {bill.scope === "personal" ? "Personal" : "Household"}
+                    </Badge>
+                  )}
+                  <Badge
+                    variant="outline"
+                    className={cn("text-[10px] px-1.5 py-0", statusBadgeClass(bill.status))}
+                  >
+                    {bill.status}
+                  </Badge>
                   {bill.recurrenceModifier && (
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                       {bill.recurrenceModifier}
@@ -88,6 +118,14 @@ export function BillTable({ bills, currentPaycheckPeriod, toggleBillStatus }: Bi
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                    {statusOptions.map((status) => (
+                      <DropdownMenuItem
+                        key={status}
+                        onClick={() => updateBillStatus(bill.id, status)}
+                      >
+                        Mark as {status}
+                      </DropdownMenuItem>
+                    ))}
                     <DropdownMenuItem>Edit</DropdownMenuItem>
                     <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">Delete</DropdownMenuItem>
                   </DropdownMenuContent>
