@@ -6,8 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Loader2, Mail, Lock } from "lucide-react";
-import { signInWithEmailAndPassword, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth";
+import { Loader2, Mail, Lock, Chrome } from "lucide-react";
+import {
+  signInWithEmailAndPassword,
+  sendSignInLinkToEmail,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -17,6 +22,34 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setMessage(null);
+
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      router.push("/dashboard");
+    } catch (error: any) {
+      let errorMessage = "Failed to sign in with Google. Please try again.";
+
+      if (error.code === "auth/popup-closed-by-user") {
+        errorMessage = "Sign-in was canceled.";
+      } else if (error.code === "auth/popup-blocked") {
+        errorMessage = "Popup was blocked. Please allow popups and try again.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setMessage({
+        type: "error",
+        text: errorMessage,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handlePasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -94,6 +127,29 @@ export function LoginForm() {
 
   return (
     <div className="space-y-6">
+      <div className="space-y-3">
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={handleGoogleSignIn}
+          disabled={isLoading}
+        >
+          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {!isLoading && <Chrome className="mr-2 h-4 w-4" />}
+          Continue with Google
+        </Button>
+        {message && (
+          <Alert variant={message.type === "error" ? "destructive" : "default"}>
+            <AlertDescription>{message.text}</AlertDescription>
+          </Alert>
+        )}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="h-px flex-1 bg-border" />
+          or sign in with email
+          <span className="h-px flex-1 bg-border" />
+        </div>
+      </div>
       <Tabs defaultValue="password" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="password" className="flex items-center gap-2">
@@ -137,11 +193,6 @@ export function LoginForm() {
                 required
               />
             </div>
-            {message && (
-              <Alert variant={message.type === "error" ? "destructive" : "default"}>
-                <AlertDescription>{message.text}</AlertDescription>
-              </Alert>
-            )}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? "Signing In..." : "Sign In"}
@@ -165,11 +216,6 @@ export function LoginForm() {
                 We'll send you a secure link to sign in without a password.
               </p>
             </div>
-            {message && (
-              <Alert variant={message.type === "error" ? "destructive" : "default"}>
-                <AlertDescription>{message.text}</AlertDescription>
-              </Alert>
-            )}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? "Sending..." : "Send Sign-In Link"}
