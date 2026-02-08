@@ -65,8 +65,11 @@ export function ImportBillsDialog({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<Omit<Bill, "id" | "status">[] | null>(null);
+  const [pendingHouseholdBills, setPendingHouseholdBills] = useState<Omit<Bill, "id" | "status">[] | null>(null);
+  const [isHouseholdPromptOpen, setIsHouseholdPromptOpen] = useState(false);
+  const [householdName, setHouseholdName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { activeHouseholdId } = useHouseholds();
+  const { activeHouseholdId, createHousehold } = useHouseholds();
 
   const normalizeColumnName = (name: string): string => {
     return name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -246,17 +249,17 @@ export function ImportBillsDialog({
 
     const hasHouseholdScope = bills.some((bill) => bill.scope === "household");
 
-    if (hasHouseholdScope && !activeHouseholdId) {
-      setError("Some rows are marked as household scope, but no household is active. Select a household and retry.");
-      setPreview(null);
-      setIsProcessing(false);
-      return;
-    }
-
     if (bills.length === 0) {
       setError("No valid bills found in the file. Please check that your file has the required columns: Payee, Due Date, and Amount due each month.");
     } else if (errors.length > 0) {
       setError(`Imported ${bills.length} bills. ${errors.length} row(s) were skipped: ${errors.slice(0, 3).join("; ")}${errors.length > 3 ? "..." : ""}`);
+    }
+
+    if (hasHouseholdScope && !activeHouseholdId) {
+      setPendingHouseholdBills(bills);
+      setIsHouseholdPromptOpen(true);
+      setIsProcessing(false);
+      return;
     }
 
     setPreview(bills);
@@ -270,6 +273,9 @@ export function ImportBillsDialog({
       setFile(null);
       setPreview(null);
       setError(null);
+      setPendingHouseholdBills(null);
+      setIsHouseholdPromptOpen(false);
+      setHouseholdName("");
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -281,28 +287,66 @@ export function ImportBillsDialog({
     setFile(null);
     setPreview(null);
     setError(null);
+    setPendingHouseholdBills(null);
+    setIsHouseholdPromptOpen(false);
+    setHouseholdName("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
+  const handleCreateHouseholdFromImport = async () => {
+    if (!pendingHouseholdBills) return;
+    setIsProcessing(true);
+    setError(null);
+    try {
+      await createHousehold(householdName || "New Household");
+      onImport(pendingHouseholdBills);
+      setIsHouseholdPromptOpen(false);
+      setPendingHouseholdBills(null);
+      setHouseholdName("");
+      setPreview(null);
+      setIsOpen(false);
+      setFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create household.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleImportAsPersonal = () => {
+    if (!pendingHouseholdBills) return;
+    const adjusted = pendingHouseholdBills.map((bill) => ({
+      ...bill,
+      scope: "personal" as const,
+    }));
+    setPreview(adjusted);
+    setPendingHouseholdBills(null);
+    setIsHouseholdPromptOpen(false);
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="font-headline">Import Bills from Spreadsheet</DialogTitle>
-          <DialogDescription>
-            Upload a CSV or Excel file with your bills. Required columns: Payee, Due Date, Amount due each month.
-            Optional columns: Recurrence Modifier (daily, weekly, biweekly, monthly, quarterly, yearly), Current balance, Interest rate, Notes, Category, Payment Method (autopay, manual), Scope (personal, household).
-            <a
-              href="/bills-import-template.csv"
-              download
-              className="ml-1 text-primary hover:underline"
-            >
-              Download template
-            </a>
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-headline">Import Bills from Spreadsheet</DialogTitle>
+            <DialogDescription>
+              Upload a CSV or Excel file with your bills. Required columns: Payee, Due Date, Amount due each month.
+              Optional columns: Recurrence Modifier (daily, weekly, biweekly, monthly, quarterly, yearly), Current balance, Interest rate, Notes, Category, Payment Method (autopay, manual), Scope (personal, household).
+              <a
+                href="/bills-import-template.csv"
+                download
+                className="ml-1 text-primary hover:underline"
+              >
+                Download template
+              </a>
+            </DialogDescription>
+          </DialogHeader>
 
         <div className="space-y-4 py-4">
           {/* File Upload */}
@@ -418,8 +462,39 @@ export function ImportBillsDialog({
             Import {preview ? `${preview.length} ` : ""}Bill{preview && preview.length !== 1 ? "s" : ""}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isHouseholdPromptOpen} onOpenChange={setIsHouseholdPromptOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create a household from this import?</DialogTitle>
+            <DialogDescription>
+              Your file includes household-scoped rows. You can create a household and import them there,
+              or import them as personal bills.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="household-import-name">Household name</Label>
+            <Input
+              id="household-import-name"
+              placeholder="e.g. The Smiths"
+              value={householdName}
+              onChange={(event) => setHouseholdName(event.target.value)}
+              disabled={isProcessing}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleImportAsPersonal} disabled={isProcessing}>
+              Import as personal
+            </Button>
+            <Button onClick={handleCreateHouseholdFromImport} disabled={isProcessing}>
+              Create household & import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
