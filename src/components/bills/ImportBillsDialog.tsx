@@ -73,7 +73,8 @@ export function ImportBillsDialog({
     const str = String(dateStr).trim();
     
     // Try Excel date serial number first (common in Excel exports)
-    const excelDate = parseFloat(str);
+    const isNumericSerial = typeof dateStr === "number" || /^\d+(\.\d+)?$/.test(str);
+    const excelDate = isNumericSerial ? parseFloat(str) : NaN;
     if (!isNaN(excelDate) && excelDate > 0 && excelDate < 100000) {
       // Excel dates start from 1900-01-01
       const excelEpoch = new Date(1899, 11, 30);

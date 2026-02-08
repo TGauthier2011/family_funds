@@ -83,6 +83,7 @@ export function AddBillDialog({ isOpen, setIsOpen, onAddBill }: AddBillDialogPro
                     <SelectItem value="Food">Food</SelectItem>
                     <SelectItem value="Entertainment">Entertainment</SelectItem>
                     <SelectItem value="Finance">Finance</SelectItem>
+                    <SelectItem value="Medical">Medical</SelectItem>
                     <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
             </Select>

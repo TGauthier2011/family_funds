@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { HouseholdManager } from "@/components/households/HouseholdManager";
 
 export default function SettingsPage() {
   return (
@@ -7,6 +8,7 @@ export default function SettingsPage() {
         <h1 className="font-headline text-3xl md:text-4xl">Settings</h1>
         <p className="text-muted-foreground">Manage your account and application preferences.</p>
       </div>
+      <HouseholdManager />
       <Card>
         <CardHeader>
           <CardTitle>Coming Soon</CardTitle>

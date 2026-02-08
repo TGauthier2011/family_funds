@@ -5,6 +5,7 @@ import { CustomCalendar } from "@/components/ui/custom-calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -12,17 +13,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { mockBills } from "@/lib/mock-data";
 import type { Bill, CalendarEvent } from "@/lib/types";
 import { format, isSameDay, parseISO, startOfMonth, endOfMonth } from "date-fns";
 import { normalizeRecurrence, generateRecurringDatesForMonth } from "@/lib/recurrence";
 import { DollarSign, Receipt, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useBills } from "@/components/bills/BillsProvider";
+import { useHouseholds } from "@/components/households/HouseholdsProvider";
 
 export function InteractiveCalendar() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
-  const [bills] = useState<Bill[]>(mockBills);
+  const { bills } = useBills();
+  const { households, activeHouseholdId, setActiveHousehold } = useHouseholds();
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
 
   // Convert bills to calendar events, including recurring occurrences
@@ -184,7 +187,23 @@ export function InteractiveCalendar() {
                   Click on a date to view or add events
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Select
+                  value={activeHouseholdId ?? "personal"}
+                  onValueChange={(value) => setActiveHousehold(value === "personal" ? null : value)}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select scope" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="personal">Personal</SelectItem>
+                    {households.map((household) => (
+                      <SelectItem key={household.id} value={household.id}>
+                        {household.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button
                   variant="outline"
                   size="sm"
